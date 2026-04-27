@@ -8,10 +8,6 @@ probably needed for any C++ library. Especially a jump start
 towards connecting to a basic professional infrastructure
 for building and CI.
 
-By default, this builds a **static** library with a split header and `.cpp` implementation. Set
-`MB_ALLOC_STATISTICS_HEADER_ONLY=ON` to build the same API as a **header-only** `INTERFACE` library (no object code in
-the library target; implementation is `inline` in the generated public header).
-
 ## Quick start
 
 The repo uses submodules (e.g. for `devenv`). After clone:
@@ -60,7 +56,6 @@ Upstream repository: [devmarkusb/cpp-lib-template](https://github.com/devmarkusb
 
 | Option                               | Default             | Description                                                                  |
 |--------------------------------------|---------------------|------------------------------------------------------------------------------|
-| `MB_ALLOC_STATISTICS_HEADER_ONLY`    | `OFF`               | Header-only `INTERFACE` library vs static library with sources under `src/`. |
 | `MB_ALLOC_STATISTICS_BUILD_TESTS`    | `ON` when top-level | Build tests and test infra (GoogleTest).                                     |
 | `MB_ALLOC_STATISTICS_BUILD_EXAMPLES` | `ON` when top-level | Build example executables.                                                   |
 
@@ -115,23 +110,8 @@ Development and CI support (typically as a submodule): see
 
 - **`mb/alloc-statistics/`** — Public headers, exposed via a FILE_SET.
 
-### `src/`
-
-- **`CMakeLists.txt`** — Adds compiled `.cpp` sources to the static library when `MB_ALLOC_STATISTICS_HEADER_ONLY` is
-  OFF; registers tests when `MB_ALLOC_STATISTICS_BUILD_TESTS` is ON.
-- **`alloc-statistics.cpp`** — Library implementation (not used in header-only mode).
-- **`alloc-statistics.test.cpp`** — GoogleTest sources; built only when `MB_ALLOC_STATISTICS_BUILD_TESTS` is ON.
-
 ### Root files
 
-- **`CMakeLists.txt`** — Top-level: project, options, library target (static by default, or header-only `INTERFACE`
-  when `MB_ALLOC_STATISTICS_HEADER_ONLY=ON`), install, tests, examples.
-- **`CMakePresets.json`** — Configure, build, test, and workflow presets for multiple compilers and configs.
 - **`fetchcontent-lockfile.json`** — Pinned Git dependencies for the CMake dependency provider (e.g. Googletest); optional
   fields include `cmake_variables` per dependency. Format is documented in `devenv/README.md`. See **Build presets**
   above for the separate minimal lockfile under `devenv/` when building devenv alone.
-- **`.pre-commit-config.yaml`** — Pre-commit hooks: trailing whitespace, EOF, JSON/YAML checks, clang-format,
-  gersemi (CMake), markdownlint, codespell (runs on the whole tree, including `devenv/` when checked out as a
-  submodule — cheap and catches drift if you touch it). To sync `.clang-format` from
-  [devmarkusb/clangformat](https://github.com/devmarkusb/clangformat) (including versioned configs), run
-  `cd devenv && ./sync-clang-format.sh [VERSION]` (run from inside `devenv`).
