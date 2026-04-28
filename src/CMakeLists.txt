@@ -45,16 +45,17 @@ if(NOT MB_DEVENV_SANITIZER)
         mb.alloc-statistics-test_applied
         PROPERTIES ENVIRONMENT "LSAN_OPTIONS=detect_leaks=0"
     )
-
-    # GTest test with custom main: applied stats measured around GTest's own allocations
-    add_executable(
-        mb.alloc-statistics-test_gtest
-        new_statistics.applied.gtest.test.cpp
-    )
-    target_link_libraries(
-        mb.alloc-statistics-test_gtest
-        PRIVATE GTest::gtest mb::alloc-statistics
-    )
-    mb_devenv_set_target_essentials(mb.alloc-statistics-test_gtest)
-    gtest_discover_tests(mb.alloc-statistics-test_gtest)
 endif()
+
+# GTest test: keep this enabled for sanitizer presets so CTest still has
+# discoverable tests when plain-main tests are intentionally disabled.
+add_executable(
+    mb.alloc-statistics-test_gtest
+    new_statistics.applied.gtest.test.cpp
+)
+target_link_libraries(
+    mb.alloc-statistics-test_gtest
+    PRIVATE GTest::gtest mb::alloc-statistics
+)
+mb_devenv_set_target_essentials(mb.alloc-statistics-test_gtest)
+gtest_discover_tests(mb.alloc-statistics-test_gtest)

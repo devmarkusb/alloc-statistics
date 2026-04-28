@@ -35,6 +35,10 @@ struct AGlobalDestructor {
 };
 } // namespace
 
+TEST(NewStatisticsApplied, Smoke) {
+    SUCCEED();
+}
+
 int main(int argc, char** argv) {
     try {
         // Our definition of 'global'. By the way, a real global data's construction and destruction time is beyond
