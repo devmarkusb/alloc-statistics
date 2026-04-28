@@ -1,25 +1,49 @@
-#include "ul/mem/new_statistics.h"
-#include "ul/mem/types.h"
-#include "ul/buildenv/warnings.h"
-#include <cstddef>
+#include "mb/alloc-statistics/new_statistics.hpp"
+#include <cstdlib>
 #include <new>
 
-namespace ul = mb::ul;
+namespace {
+// Must be at least alignof(std::max_align_t) so the user pointer returned by operator new
+// retains the alignment guarantee from malloc, and at least sizeof(size_t) to hold the size.
+constexpr size_t k_header_size = sizeof(size_t) > alignof(std::max_align_t) ? sizeof(size_t)
+                                                                            : alignof(std::max_align_t);
+} // namespace
+
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunsafe-buffer-usage"
+#endif
+
+namespace mb::alloc_statistics {
+void Statistics::new_call(Bytes size, void* p) noexcept {
+    new_calls_.fetch_add(1, std::memory_order_relaxed);
+    current_size_.fetch_add(size.value, std::memory_order_seq_cst);
+    // Atomically update peak_size_ to max(peak_size_, current_size_) via CAS loop.
+    size_t prev = peak_size_.load(std::memory_order_relaxed);
+    const size_t current = current_size_.load(std::memory_order_seq_cst);
+    while (current > prev && !peak_size_.compare_exchange_weak(prev, current, std::memory_order_relaxed)) {
+    }
+    allocated_size_.fetch_add(size.value, std::memory_order_relaxed);
+    *static_cast<size_t*>(p) = size.value; // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+}
+
+void Statistics::delete_call(void* p) noexcept {
+    delete_calls_.fetch_add(1, std::memory_order_relaxed);
+    const auto size = *static_cast<const size_t*>(p); // NOLINT
+    current_size_.fetch_sub(size, std::memory_order_seq_cst);
+    deallocated_size_.fetch_add(size, std::memory_order_relaxed);
+}
+} // namespace mb::alloc_statistics
 
 namespace {
 [[nodiscard]] void* allocate_with_stats(size_t size_in_bytes) noexcept {
-    auto* const p = reinterpret_cast<uint8_t*>(std::malloc(sizeof(ul::mem::StatsHeader) + size_in_bytes)); // NOLINT
-    if (!p)
+    void* const raw = std::malloc(k_header_size + size_in_bytes); // NOLINT(cppcoreguidelines-no-malloc)
+    if (!raw)
         return nullptr;
-    ul::mem::Statistics::instance().new_call(ul::mem::Bytes{size_in_bytes}, p);
-    return p + sizeof(ul::mem::StatsHeader); // NOLINT
+    mb::alloc_statistics::Statistics::instance().new_call(mb::alloc_statistics::Bytes{size_in_bytes}, raw);
+    return static_cast<char*>(raw) + k_header_size; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
 }
 } // namespace
-
-UL_PRAGMA_WARNINGS_PUSH
-// clang-format off
-UL_WARNING_DISABLE_CLANG(unsafe-buffer-usage)
-// clang-format on
 
 void* operator new(size_t size_in_bytes) {
     void* const p = allocate_with_stats(size_in_bytes);
@@ -46,39 +70,32 @@ void* operator new[](size_t size_in_bytes, const std::nothrow_t&) noexcept {
 void operator delete(void* p) noexcept {
     if (!p)
         return;
-    p = reinterpret_cast<uint8_t*>(p) - sizeof(ul::mem::StatsHeader); // NOLINT
-    ul::mem::Statistics::instance().delete_call(p);
-    std::free(p); // NOLINT
+    void* const raw = static_cast<char*>(p) - k_header_size; // NOLINT
+    mb::alloc_statistics::Statistics::instance().delete_call(raw);
+    std::free(raw); // NOLINT(cppcoreguidelines-no-malloc)
 }
 
 void operator delete[](void* p) noexcept {
     if (!p)
         return;
-    p = reinterpret_cast<uint8_t*>(p) - sizeof(ul::mem::StatsHeader); // NOLINT
-    ul::mem::Statistics::instance().delete_call(p);
-    std::free(p); // NOLINT
+    void* const raw = static_cast<char*>(p) - k_header_size; // NOLINT
+    mb::alloc_statistics::Statistics::instance().delete_call(raw);
+    std::free(raw); // NOLINT(cppcoreguidelines-no-malloc)
 }
 
-// some compiler complains about no prev. prototype otherwise
+// Sized deallocation overloads (C++14): forward to the unsized versions.
 void operator delete(void* p, size_t /*unused*/) noexcept;
 
 void operator delete(void* p, size_t /*unused*/) noexcept {
-    if (!p)
-        return;
-    p = reinterpret_cast<uint8_t*>(p) - sizeof(ul::mem::StatsHeader); // NOLINT
-    ul::mem::Statistics::instance().delete_call(p);
-    std::free(p); // NOLINT
+    ::operator delete(p);
 }
 
-// some compiler complains about no prev. prototype otherwise
 void operator delete[](void* p, size_t /*unused*/) noexcept;
 
 void operator delete[](void* p, size_t /*unused*/) noexcept {
-    if (!p)
-        return;
-    p = reinterpret_cast<uint8_t*>(p) - sizeof(ul::mem::StatsHeader); // NOLINT
-    ul::mem::Statistics::instance().delete_call(p);
-    std::free(p); // NOLINT
+    ::operator delete[](p);
 }
 
-UL_PRAGMA_WARNINGS_POP
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
