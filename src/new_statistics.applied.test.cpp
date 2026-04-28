@@ -1,24 +1,24 @@
-#include "ul/mem/new_statistics.h"
-#include "ul/basiccodesupport/assert.h"
-#include "ul/basiccodesupport/error.h"
-#include "ul/basiccodesupport/format_number.h"
-#include "ul/buildenv/macros.h"
-#include "ul/mem/types.h"
+#include "mb/alloc-statistics/new_statistics.hpp"
+#include <exception>
 #include <iostream>
 
-namespace ul = mb::ul;
+namespace as = mb::alloc_statistics;
 
 namespace {
+#define AS_ASSERT_TERMINATE(cond) \
+    do { \
+        if (!(cond)) \
+            std::terminate(); \
+    } while (false)
+
 struct AGlobalDestructor {
     AGlobalDestructor() {
-        auto& memstats = ul::mem::Statistics::instance();
-
-        memstats.reset();
+        as::Statistics::instance().reset();
     }
 
     ~AGlobalDestructor() {
         try {
-            const auto& memstats = ul::mem::Statistics::instance();
+            const auto& memstats = as::Statistics::instance();
 
             const auto new_calls{memstats.new_calls()};
             const auto delete_calls{memstats.delete_calls()};
@@ -26,42 +26,27 @@ struct AGlobalDestructor {
             const auto deallocated_size{memstats.deallocated_size()};
             const auto peak_size = memstats.peak_size();
 
-            // mem/allocator.test.cpp is the evil one, that still has leaks according to the statistics
-            // But nevertheless the test is ok for now as it can still detect (and prevent) any new leaks.
             std::cout << "new calls: " << new_calls << "\n";
             std::cout << "delete calls: " << delete_calls << "\n";
-#if UL_OS_LINUX
-#if !UL_DEBUG
-            UL_ASSERT_TERMINATE(new_calls - delete_calls == 0);
+#if defined(__linux__)
+#if !defined(NDEBUG)
+            AS_ASSERT_TERMINATE(new_calls - delete_calls == 0);
 #endif
 #else
             // untested
-            UL_ASSERT_TERMINATE(new_calls - delete_calls == 0);
+            AS_ASSERT_TERMINATE(new_calls - delete_calls == 0);
 #endif
             std::cout << "allocated size: " << allocated_size << "\n";
             std::cout << "deallocated size: " << deallocated_size << "\n";
             const auto alloc_dealloc_diff = allocated_size - deallocated_size;
-            std::cout << "allocated size minus deallocated size: ";
-#if !UL_OS_MAC && !UL_OS_WINDOWS
-            // strange, under Windows this yields an exception 'Invalid address specified to RtlValidateHeap'
-            std::cout << ul::fmt::group_thousands(alloc_dealloc_diff);
-#else
-            std::cout << alloc_dealloc_diff;
-#endif
-#if !UL_OS_MAC
-            UL_ASSERT_TERMINATE(alloc_dealloc_diff == ul::mem::Bytes{});
+            std::cout << "allocated size minus deallocated size: " << alloc_dealloc_diff << "\n";
+#if !defined(__APPLE__)
+            AS_ASSERT_TERMINATE(alloc_dealloc_diff == as::Bytes{});
 #else
             // untested
-            UL_ASSERT_TERMINATE(alloc_dealloc_diff == ul::mem::Bytes{});
+            AS_ASSERT_TERMINATE(alloc_dealloc_diff == as::Bytes{});
 #endif
-            std::cout << "\n";
-            std::cout << "peak mem usage: " <<
-#if !UL_OS_MAC && !UL_OS_WINDOWS
-                ul::fmt::group_thousands(peak_size)
-#else
-                peak_size
-#endif
-                      << "\n";
+            std::cout << "peak mem usage: " << peak_size << "\n";
         } catch (...) {
         }
     }
@@ -73,8 +58,8 @@ int main(int /*unused*/, char** /*unused*/) {
         // Our definition of 'global'. By the way, a real global data's construction and destruction time is beyond
         // our control, so that would never yield proper new/delete statistics.
         const AGlobalDestructor global;
-        return ul::prog_exit_success;
+        return EXIT_SUCCESS;
     } catch (...) {
-        return ul::prog_exit_failure;
+        return EXIT_FAILURE;
     }
 }

@@ -40,12 +40,9 @@ add_library(mb.alloc-statistics STATIC)
 
 add_library(mb::alloc-statistics ALIAS mb.alloc-statistics)
 
-mb_devenv_set_target_defaults(mb.alloc-statistics)
+#target_compile_features(mb.alloc-statistics PUBLIC cxx_std_20)
 
-target_sources(
-    mb.alloc-statistics
-    PUBLIC FILE_SET HEADERS BASE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/include"
-)
+mb_devenv_set_target_defaults(mb.alloc-statistics)
 
 add_subdirectory(include/mb/alloc-statistics)
 
