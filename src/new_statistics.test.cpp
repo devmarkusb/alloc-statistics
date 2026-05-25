@@ -48,21 +48,24 @@ int main() {
             AS_ASSERT_THROW(memstats.new_calls() == 1U);
             AS_ASSERT_THROW(memstats.peak_size() == as::Bytes{sizeof(int)});
 
+            const auto new_calls_before_vector = memstats.new_calls();
             auto impl_correction_ofs = memstats.allocated_size();
+            size_t vector_constr_heap_new_calls{};
             {
                 std::vector<int> l;
                 impl_correction_ofs = memstats.allocated_size() - impl_correction_ofs;
+                vector_constr_heap_new_calls = memstats.new_calls() - new_calls_before_vector;
                 AS_ASSERT_THROW(impl_correction_ofs == vector_constr_heap_alloc_size);
                 AS_ASSERT_THROW(!l.capacity());
                 l.reserve(n10);
-                exp_new_calls = 2U + (impl_correction_ofs ? 1U : 0U);
+                exp_new_calls = 2U + vector_constr_heap_new_calls;
                 AS_ASSERT_THROW(memstats.new_calls() == exp_new_calls);
                 exp_peak_size = as::Bytes{b44} + impl_correction_ofs;
                 AS_ASSERT_THROW(memstats.peak_size() == exp_peak_size);
                 for (size_t i = 0; i < n10 / 2U; ++i)
                     l.push_back(static_cast<int>(i));
             }
-            exp_delete_calls = 1U + (impl_correction_ofs ? 1U : 0U);
+            exp_delete_calls = 1U + vector_constr_heap_new_calls;
             AS_ASSERT_THROW(memstats.delete_calls() == exp_delete_calls);
 
             p1.reset(); // calls delete, so stats still updated
