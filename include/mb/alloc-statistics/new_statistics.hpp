@@ -57,7 +57,7 @@ public:
     // Called by operator new overrides; p points to the raw allocation (before user data).
     void new_call(Bytes size, void* p) noexcept;
     // Called by operator delete overrides; p points to the raw allocation (before user data).
-    void delete_call(void* p) noexcept;
+    void delete_call(const void* p) noexcept;
 
     [[nodiscard]] size_t new_calls() const noexcept {
         return new_calls_.load();

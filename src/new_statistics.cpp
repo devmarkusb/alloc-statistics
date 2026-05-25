@@ -27,7 +27,7 @@ void Statistics::new_call(Bytes size, void* p) noexcept {
     *static_cast<size_t*>(p) = size.value; // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
 }
 
-void Statistics::delete_call(void* p) noexcept {
+void Statistics::delete_call(const void* p) noexcept {
     delete_calls_.fetch_add(1, std::memory_order_relaxed);
     const auto size = *static_cast<const size_t*>(p); // NOLINT
     current_size_.fetch_sub(size, std::memory_order_seq_cst);

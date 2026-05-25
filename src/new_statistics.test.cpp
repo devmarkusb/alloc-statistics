@@ -48,16 +48,16 @@ int main() {
             // RAII so we don't leak on assertion failure (e.g. during CMake test discovery)
             std::unique_ptr<int> p1(new int); // NOLINT
             pin_heap_allocation(p1.get());
+            exp_new_calls = 1U;
             AS_ASSERT_THROW(memstats.new_calls() == 1U);
             AS_ASSERT_THROW(memstats.peak_size() == as::Bytes{sizeof(int)});
 
-            const auto new_calls_before_vector = memstats.new_calls();
             auto impl_correction_ofs = memstats.allocated_size();
             size_t vector_constr_heap_new_calls{};
             {
                 std::vector<int> l;
                 impl_correction_ofs = memstats.allocated_size() - impl_correction_ofs;
-                vector_constr_heap_new_calls = memstats.new_calls() - new_calls_before_vector;
+                vector_constr_heap_new_calls = memstats.new_calls() - exp_new_calls;
                 AS_ASSERT_THROW(impl_correction_ofs == vector_constr_heap_alloc_size);
                 AS_ASSERT_THROW(!l.capacity());
                 const auto new_calls_before_reserve = memstats.new_calls();

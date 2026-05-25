@@ -48,6 +48,7 @@ void run_tracked_workload() {
     auto buffer = std::make_unique<std::byte[]>(4'096);
     pin_heap_allocation(buffer.get());
     buffer[0] = std::byte{0x2a};
+    pin_heap_allocation(&buffer[0]);
 }
 
 struct AllocationReport {
