@@ -1,6 +1,7 @@
 #include "mb/alloc-statistics/new_statistics.hpp"
 #include <iostream>
 #include <memory>
+#include <stdexcept>
 #include <vector>
 
 namespace as = mb::alloc_statistics;
@@ -8,8 +9,10 @@ namespace as = mb::alloc_statistics;
 namespace {
 #define AS_ASSERT_THROW(cond) \
     do { \
-        if (!(cond)) \
-            throw std::runtime_error("Assertion failed: " #cond); \
+        if (!(cond)) { \
+            std::cerr << "Assertion failed at " << __FILE__ << ':' << __LINE__ << ": " #cond << '\n'; \
+            throw std::runtime_error{"Assertion failed: " #cond}; \
+        } \
     } while (false)
 
 /** GCC at high optimization can remove `new`/`delete` pairs when no *standard-observable* use of the
@@ -57,8 +60,10 @@ int main() {
                 vector_constr_heap_new_calls = memstats.new_calls() - new_calls_before_vector;
                 AS_ASSERT_THROW(impl_correction_ofs == vector_constr_heap_alloc_size);
                 AS_ASSERT_THROW(!l.capacity());
+                const auto new_calls_before_reserve = memstats.new_calls();
                 l.reserve(n10);
-                exp_new_calls = 2U + vector_constr_heap_new_calls;
+                pin_heap_allocation(l.data());
+                exp_new_calls = new_calls_before_reserve + 1U;
                 AS_ASSERT_THROW(memstats.new_calls() == exp_new_calls);
                 exp_peak_size = as::Bytes{b44} + impl_correction_ofs;
                 AS_ASSERT_THROW(memstats.peak_size() == exp_peak_size);
