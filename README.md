@@ -51,7 +51,7 @@ This repository uses `devenv` as a submodule:
 git submodule update --init --recursive
 ```
 
-Or run `./devenv/git-sub.sh` to update submodules and pull Git LFS files when the repo uses them.
+Or run `./devenv/scripts/git-sub.sh` to update submodules and pull Git LFS files when the repo uses them.
 
 Configure, build, and test with a preset:
 
