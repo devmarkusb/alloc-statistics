@@ -33,12 +33,12 @@ struct Bytes {
     }
 };
 
-[[nodiscard]] inline constexpr Bytes operator+(Bytes a, Bytes b) noexcept {
+[[nodiscard]] constexpr Bytes operator+(Bytes a, Bytes b) noexcept {
     a += b;
     return a;
 }
 
-[[nodiscard]] inline constexpr Bytes operator-(Bytes a, Bytes b) noexcept {
+[[nodiscard]] constexpr Bytes operator-(Bytes a, Bytes b) noexcept {
     a -= b;
     return a;
 }
@@ -90,12 +90,12 @@ public:
     }
 
 private:
-    std::atomic<size_t> new_calls_{};
-    std::atomic<size_t> delete_calls_{};
-    std::atomic<size_t> current_size_{};
-    std::atomic<size_t> peak_size_{};
-    std::atomic<size_t> allocated_size_{};
-    std::atomic<size_t> deallocated_size_{};
+    std::atomic<size_t> new_calls_;
+    std::atomic<size_t> delete_calls_;
+    std::atomic<size_t> current_size_;
+    std::atomic<size_t> peak_size_;
+    std::atomic<size_t> allocated_size_;
+    std::atomic<size_t> deallocated_size_;
 
     Statistics() = default;
 };

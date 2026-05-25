@@ -1,16 +1,20 @@
 #include "mb/alloc-statistics/new_statistics.hpp"
+
+#include <atomic>
+#include <cstddef>
 #include <cstdlib>
 #include <new>
 
-namespace {
 // Must be at least alignof(std::max_align_t) so the user pointer returned by operator new
 // retains the alignment guarantee from malloc, and at least sizeof(size_t) to hold the size.
 constexpr size_t k_header_size = sizeof(size_t) > alignof(std::max_align_t) ? sizeof(size_t)
                                                                             : alignof(std::max_align_t);
-} // namespace
 
 #ifdef __clang__
 #pragma clang diagnostic push
+#if __has_warning("-Wallocator-wrappers")
+#pragma clang diagnostic ignored "-Wallocator-wrappers"
+#endif
 #pragma clang diagnostic ignored "-Wunsafe-buffer-usage"
 #endif
 
@@ -36,8 +40,9 @@ void Statistics::delete_call(const void* p) noexcept {
 } // namespace mb::alloc_statistics
 
 namespace {
+// NOLINTNEXTLINE(llvm-prefer-static-over-anonymous-namespace)
 [[nodiscard]] void* allocate_with_stats(size_t size_in_bytes) noexcept {
-    void* const raw = std::malloc(k_header_size + size_in_bytes); // NOLINT(cppcoreguidelines-no-malloc)
+    void* const raw = std::malloc(k_header_size + size_in_bytes); // NOLINT(cppcoreguidelines-no-malloc,hicpp-no-malloc)
     if (!raw)
         return nullptr;
     mb::alloc_statistics::Statistics::instance().new_call(mb::alloc_statistics::Bytes{size_in_bytes}, raw);
@@ -45,6 +50,7 @@ namespace {
 }
 } // namespace
 
+// NOLINTNEXTLINE(readability-inconsistent-declaration-parameter-name)
 void* operator new(size_t size_in_bytes) {
     void* const p = allocate_with_stats(size_in_bytes);
     if (!p)
@@ -52,10 +58,12 @@ void* operator new(size_t size_in_bytes) {
     return p;
 }
 
+// NOLINTNEXTLINE(readability-inconsistent-declaration-parameter-name)
 void* operator new(size_t size_in_bytes, const std::nothrow_t&) noexcept {
     return allocate_with_stats(size_in_bytes);
 }
 
+// NOLINTNEXTLINE(readability-inconsistent-declaration-parameter-name)
 void* operator new[](size_t size_in_bytes) {
     void* const p = allocate_with_stats(size_in_bytes);
     if (!p)
@@ -63,6 +71,7 @@ void* operator new[](size_t size_in_bytes) {
     return p;
 }
 
+// NOLINTNEXTLINE(readability-inconsistent-declaration-parameter-name)
 void* operator new[](size_t size_in_bytes, const std::nothrow_t&) noexcept {
     return allocate_with_stats(size_in_bytes);
 }
@@ -72,7 +81,7 @@ void operator delete(void* p) noexcept {
         return;
     void* const raw = static_cast<char*>(p) - k_header_size; // NOLINT
     mb::alloc_statistics::Statistics::instance().delete_call(raw);
-    std::free(raw); // NOLINT(cppcoreguidelines-no-malloc)
+    std::free(raw); // NOLINT(cppcoreguidelines-no-malloc,hicpp-no-malloc)
 }
 
 void operator delete[](void* p) noexcept {
@@ -80,17 +89,13 @@ void operator delete[](void* p) noexcept {
         return;
     void* const raw = static_cast<char*>(p) - k_header_size; // NOLINT
     mb::alloc_statistics::Statistics::instance().delete_call(raw);
-    std::free(raw); // NOLINT(cppcoreguidelines-no-malloc)
+    std::free(raw); // NOLINT(cppcoreguidelines-no-malloc,hicpp-no-malloc)
 }
 
 // Sized deallocation overloads (C++14): forward to the unsized versions.
-void operator delete(void* p, size_t /*unused*/) noexcept;
-
 void operator delete(void* p, size_t /*unused*/) noexcept {
     ::operator delete(p);
 }
-
-void operator delete[](void* p, size_t /*unused*/) noexcept;
 
 void operator delete[](void* p, size_t /*unused*/) noexcept {
     ::operator delete[](p);

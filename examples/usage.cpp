@@ -1,6 +1,7 @@
-#include "mb/alloc-statistics/alloc-statistics.hpp"
+#include "mb/alloc-statistics/new_statistics.hpp"
 
 #include <cstddef>
+#include <cstdlib>
 #include <iostream>
 #include <memory>
 #include <vector>
@@ -16,6 +17,7 @@ struct Snapshot {
     as::Bytes peak_size{};
 };
 
+// NOLINTNEXTLINE(llvm-prefer-static-over-anonymous-namespace)
 [[nodiscard]] Snapshot snapshot() noexcept {
     const auto& stats = as::Statistics::instance();
     return Snapshot{
@@ -27,16 +29,20 @@ struct Snapshot {
     };
 }
 
-void pin_heap_allocation([[maybe_unused]] void* p) noexcept {
-#if defined(__GNUC__)
-    asm volatile("" : : "g"(p) : "memory");
-#endif
+// NOLINTNEXTLINE(llvm-prefer-static-over-anonymous-namespace)
+void pin_heap_allocation(const void* p) noexcept {
+    const void* const volatile pinned = p;
+    static_cast<void>(pinned);
 }
 
+// NOLINTNEXTLINE(llvm-prefer-static-over-anonymous-namespace)
 void run_tracked_workload() {
     constexpr std::size_t value_count{128};
+    constexpr int initial_value{42};
+    constexpr std::size_t buffer_size{4'096};
+    constexpr auto marker_byte = std::byte{0x2a};
 
-    auto value = std::make_unique<int>(42);
+    auto value = std::make_unique<int>(initial_value);
     pin_heap_allocation(value.get());
 
     std::vector<int> values;
@@ -45,10 +51,10 @@ void run_tracked_workload() {
     for (std::size_t i = 0; i != value_count; ++i)
         values.push_back(static_cast<int>(i));
 
-    auto buffer = std::make_unique<std::byte[]>(4'096);
-    pin_heap_allocation(buffer.get());
-    buffer[0] = std::byte{0x2a};
-    pin_heap_allocation(&buffer[0]);
+    std::vector<std::byte> buffer(buffer_size);
+    pin_heap_allocation(buffer.data());
+    buffer.front() = marker_byte;
+    pin_heap_allocation(&buffer.front());
 }
 
 struct AllocationReport {
@@ -74,7 +80,11 @@ struct AllocationReport {
 } // namespace
 
 int main() {
-    const AllocationReport report;
-    run_tracked_workload();
-    return 0;
+    try {
+        const AllocationReport report;
+        run_tracked_workload();
+        return EXIT_SUCCESS;
+    } catch (...) {
+        return EXIT_FAILURE;
+    }
 }
