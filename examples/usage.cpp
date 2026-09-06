@@ -42,7 +42,7 @@ void run_tracked_workload() {
     constexpr std::size_t buffer_size{4'096};
     constexpr auto marker_byte = std::byte{0x2a};
 
-    auto value = std::make_unique<int>(initial_value);
+    const auto value = std::make_unique<int>(initial_value);
     pin_heap_allocation(value.get());
 
     std::vector<int> values;
