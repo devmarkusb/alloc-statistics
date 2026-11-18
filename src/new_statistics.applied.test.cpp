@@ -1,65 +1,34 @@
 #include "mb/alloc-statistics/new_statistics.hpp"
-#include <exception>
+
+#include <cstddef>
+#include <cstdlib>
 #include <iostream>
+#include <new>
 
 namespace as = mb::alloc_statistics;
 
-namespace {
-#define AS_ASSERT_TERMINATE(cond) \
-    do { \
-        if (!(cond)) \
-            std::terminate(); \
-    } while (false)
+int main() {
+    const auto& stats = as::Statistics::instance();
+    constexpr std::size_t allocation_size{32};
 
-struct AGlobalDestructor {
-    AGlobalDestructor() {
-        as::Statistics::instance().reset();
-    }
+    const auto new_calls_before = stats.new_calls();
+    const auto delete_calls_before = stats.delete_calls();
+    const auto allocated_before = stats.allocated_size();
+    const auto deallocated_before = stats.deallocated_size();
 
-    ~AGlobalDestructor() {
-        try {
-            const auto& memstats = as::Statistics::instance();
+    void* const p = ::operator new(allocation_size);
+    const auto new_calls_after = stats.new_calls();
+    const auto allocated_after = stats.allocated_size();
+    ::operator delete(p);
+    const auto delete_calls_after = stats.delete_calls();
+    const auto deallocated_after = stats.deallocated_size();
 
-            const auto new_calls{memstats.new_calls()};
-            const auto delete_calls{memstats.delete_calls()};
-            const auto allocated_size{memstats.allocated_size()};
-            const auto deallocated_size{memstats.deallocated_size()};
-            const auto peak_size = memstats.peak_size();
-
-            std::cout << "new calls: " << new_calls << "\n";
-            std::cout << "delete calls: " << delete_calls << "\n";
-#if defined(__linux__)
-#if !defined(NDEBUG)
-            AS_ASSERT_TERMINATE(new_calls - delete_calls == 0);
-#endif
-#else
-            // untested
-            AS_ASSERT_TERMINATE(new_calls - delete_calls == 0);
-#endif
-            std::cout << "allocated size: " << allocated_size << "\n";
-            std::cout << "deallocated size: " << deallocated_size << "\n";
-            const auto alloc_dealloc_diff = allocated_size - deallocated_size;
-            std::cout << "allocated size minus deallocated size: " << alloc_dealloc_diff << "\n";
-#if !defined(__APPLE__)
-            AS_ASSERT_TERMINATE(alloc_dealloc_diff == as::Bytes{});
-#else
-            // untested
-            AS_ASSERT_TERMINATE(alloc_dealloc_diff == as::Bytes{});
-#endif
-            std::cout << "peak mem usage: " << peak_size << "\n";
-        } catch (...) {
-        }
-    }
-};
-} // namespace
-
-int main(int /*unused*/, char** /*unused*/) {
-    try {
-        // Our definition of 'global'. By the way, a real global data's construction and destruction time is beyond
-        // our control, so that would never yield proper new/delete statistics.
-        const AGlobalDestructor global;
-        return EXIT_SUCCESS;
-    } catch (...) {
+    const bool passed = new_calls_after == new_calls_before + 1U && delete_calls_after == delete_calls_before + 1U
+                        && allocated_after == allocated_before + as::Bytes{allocation_size}
+                        && deallocated_after == deallocated_before + as::Bytes{allocation_size};
+    if (!passed)
         return EXIT_FAILURE;
-    }
+
+    std::cout << "PASSED (" << __FILE__ << ")\n";
+    return EXIT_SUCCESS;
 }

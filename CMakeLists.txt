@@ -34,13 +34,14 @@ include(mb-devenv-defaults)
 include(mb-devenv-install-library-config)
 
 # From fetched https://github.com/devmarkusb/pre-commit (see fetchcontent-lockfile.json).
-mb_pre_commit_setup()
+# Keep the repository-maintained hook revisions; do not replace them with the template on configure.
+mb_pre_commit_setup(PRE_COMMIT_INSTALL_EXAMPLE_CONFIG OFF)
 
 add_library(mb.alloc-statistics STATIC)
 
 add_library(mb::alloc-statistics ALIAS mb.alloc-statistics)
 
-#target_compile_features(mb.alloc-statistics PUBLIC cxx_std_20)
+target_compile_features(mb.alloc-statistics PUBLIC cxx_std_17)
 
 mb_devenv_set_target_defaults(mb.alloc-statistics)
 
@@ -50,6 +51,9 @@ add_subdirectory(src)
 
 mb_devenv_install_library(mb.alloc-statistics)
 
-if(MB_ALLOC_STATISTICS_BUILD_EXAMPLES)
+if(
+    MB_ALLOC_STATISTICS_BUILD_EXAMPLES
+    AND NOT MB_DEVENV_SANITIZER STREQUAL "TSan"
+)
     add_subdirectory(examples)
 endif()

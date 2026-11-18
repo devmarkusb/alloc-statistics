@@ -58,21 +58,23 @@ void run_tracked_workload() {
 }
 
 struct AllocationReport {
-    AllocationReport() {
-        as::Statistics::instance().reset();
-    }
+    Snapshot baseline{snapshot()};
+
+    AllocationReport() = default;
 
     ~AllocationReport() {
         try {
             const auto stats = snapshot();
-            const auto outstanding = stats.allocated_size - stats.deallocated_size;
+            const auto allocated = stats.allocated_size - baseline.allocated_size;
+            const auto deallocated = stats.deallocated_size - baseline.deallocated_size;
+            const auto outstanding = allocated - deallocated;
 
-            std::cout << "tracked new calls: " << stats.new_calls << '\n';
-            std::cout << "tracked delete calls: " << stats.delete_calls << '\n';
-            std::cout << "allocated bytes: " << stats.allocated_size << '\n';
-            std::cout << "deallocated bytes: " << stats.deallocated_size << '\n';
+            std::cout << "tracked new calls: " << stats.new_calls - baseline.new_calls << '\n';
+            std::cout << "tracked delete calls: " << stats.delete_calls - baseline.delete_calls << '\n';
+            std::cout << "allocated bytes: " << allocated << '\n';
+            std::cout << "deallocated bytes: " << deallocated << '\n';
             std::cout << "outstanding bytes: " << outstanding << '\n';
-            std::cout << "peak bytes: " << stats.peak_size << '\n';
+            std::cout << "process peak bytes: " << stats.peak_size << '\n';
         } catch (...) {
         }
     }

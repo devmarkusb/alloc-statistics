@@ -1,7 +1,7 @@
-//! \file Replaces (overrides) global new and delete to collect memory usage statistics.
-/** Usage: You need to link the implementation file of this header to your target. Then every
-    use of new/delete will be replaced with the custom version here (even standard library calls, everything).
-    So please take care that you're absolutely conscious whether you want to do this.*/
+//! \file Replaces the ordinary and aligned replaceable global new/delete functions to collect statistics.
+/** Usage: Link this header's implementation to your target. Calls that resolve to those global functions,
+    including standard-library calls, are then counted. Class-specific allocation functions and allocators
+    that bypass global new are outside this instrumentation. Use process-wide hooks only intentionally.*/
 
 #ifndef NEW_STATISTICS_H_IUG34GH347XH38GX348GX34YG2G
 #define NEW_STATISTICS_H_IUG34GH347XH38GX348GX34YG2G
@@ -49,10 +49,8 @@ inline std::ostream& operator<<(std::ostream& os, Bytes b) {
 
 class Statistics {
 public:
-    [[nodiscard]] static Statistics& instance() {
-        static Statistics stats;
-        return stats;
-    }
+    // Out-of-line so using the API anchors the static-library object containing the hooks.
+    [[nodiscard]] static Statistics& instance();
 
     // Called by operator new overrides; p points to the raw allocation (before user data).
     void new_call(Bytes size, void* p) noexcept;
@@ -80,6 +78,8 @@ public:
         return Bytes{peak_size_.load()};
     }
 
+    // Reset all counters. No tracked allocation may remain live, and no thread may
+    // concurrently execute new_call(), delete_call(), or reset().
     void reset() noexcept {
         new_calls_ = {};
         delete_calls_ = {};

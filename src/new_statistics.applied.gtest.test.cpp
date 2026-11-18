@@ -1,49 +1,36 @@
 #include "mb/alloc-statistics/new_statistics.hpp"
 #include "gtest/gtest.h"
-#include <iostream>
+
+#include <cstddef>
+#include <cstdlib>
+#include <new>
 
 namespace as = mb::alloc_statistics;
 
-namespace {
-struct AGlobalDestructor {
-    AGlobalDestructor() {
-        as::Statistics::instance().reset();
-    }
+TEST(NewStatisticsApplied, TracksExplicitAllocation) {
+    const auto& stats = as::Statistics::instance();
+    constexpr std::size_t allocation_size{32};
 
-    ~AGlobalDestructor() {
-        try {
-            const auto& memstats = as::Statistics::instance();
+    const auto new_calls_before = stats.new_calls();
+    const auto delete_calls_before = stats.delete_calls();
+    const auto allocated_before = stats.allocated_size();
+    const auto deallocated_before = stats.deallocated_size();
 
-            const auto new_calls{memstats.new_calls()};
-            const auto delete_calls{memstats.delete_calls()};
-            const auto allocated_size{memstats.allocated_size()};
-            const auto deallocated_size{memstats.deallocated_size()};
-            const auto peak_size = memstats.peak_size();
+    void* const p = ::operator new(allocation_size);
+    const auto new_calls_after = stats.new_calls();
+    const auto allocated_after = stats.allocated_size();
+    ::operator delete(p);
+    const auto delete_calls_after = stats.delete_calls();
+    const auto deallocated_after = stats.deallocated_size();
 
-            // GTest leaks memory; hard assertions here are left commented-out until a robust
-            // compensation strategy is in place.
-            std::cout << "new calls: " << new_calls << "\n";
-            std::cout << "delete calls: " << delete_calls << "\n";
-            std::cout << "allocated size: " << allocated_size << "\n";
-            std::cout << "deallocated size: " << deallocated_size << "\n";
-            const auto alloc_dealloc_diff = allocated_size - deallocated_size;
-            std::cout << "allocated size minus deallocated size: " << alloc_dealloc_diff << "\n";
-            std::cout << "peak mem usage: " << peak_size << "\n";
-        } catch (...) {
-        }
-    }
-};
-} // namespace
-
-TEST(NewStatisticsApplied, Smoke) {
-    SUCCEED();
+    EXPECT_EQ(new_calls_after, new_calls_before + 1U);
+    EXPECT_EQ(delete_calls_after, delete_calls_before + 1U);
+    EXPECT_EQ(allocated_after, allocated_before + as::Bytes{allocation_size});
+    EXPECT_EQ(deallocated_after, deallocated_before + as::Bytes{allocation_size});
 }
 
 int main(int argc, char** argv) {
     try {
-        // Our definition of 'global'. By the way, a real global data's construction and destruction time is beyond
-        // our control, so that would never yield proper new/delete statistics.
-        const AGlobalDestructor global;
         testing::InitGoogleTest(&argc, argv);
         return RUN_ALL_TESTS();
     } catch (...) {

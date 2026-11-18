@@ -10,4 +10,8 @@ foreach(example ${ALL_EXAMPLES})
         mb.alloc-statistics.examples.${example}
         PRIVATE mb::alloc-statistics
     )
+    target_compile_features(
+        mb.alloc-statistics.examples.${example}
+        PRIVATE cxx_std_20
+    )
 endforeach()

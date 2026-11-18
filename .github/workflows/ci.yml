@@ -107,8 +107,30 @@ jobs:
       namespace: mb
       main_header: alloc-statistics.hpp
 
+  install-runtime-test:
+    runs-on: ubuntu-latest
+    container: ghcr.io/bemanproject/infra-containers-gcc:latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+      - name: Configure library
+        run: cmake --preset gcc-release -DCMAKE_INSTALL_PREFIX="${GITHUB_WORKSPACE}/build/dist"
+      - name: Build and install library
+        run: |
+          cmake --build build/gcc-release
+          cmake --install build/gcc-release
+      - name: Configure installed-package consumer
+        run: >
+          cmake -S tests/install -B build/install-runtime-test -G Ninja
+          -DCMAKE_PREFIX_PATH="${GITHUB_WORKSPACE}/build/dist"
+      - name: Build and run installed-package consumer
+        run: |
+          cmake --build build/install-runtime-test
+          ctest --test-dir build/install-runtime-test --output-on-failure
+
   dependabot-automerge:
-    needs: [preset-test, build-and-test, install-test]
+    needs: [preset-test, build-and-test, install-test, install-runtime-test]
     permissions:
       contents: write
       pull-requests: write

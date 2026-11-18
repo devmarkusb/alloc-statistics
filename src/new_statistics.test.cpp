@@ -1,4 +1,5 @@
 #include "mb/alloc-statistics/new_statistics.hpp"
+#include <cstdlib>
 #include <iostream>
 #include <memory>
 #include <stdexcept>
@@ -38,7 +39,7 @@ int main() {
         size_t exp_delete_calls{};
         as::Bytes exp_peak_size{};
         constexpr size_t n10{10};
-        constexpr size_t b44{44};
+        const auto scalar_plus_array_size = as::Bytes{sizeof(int) + n10 * sizeof(int)};
 #if defined(_MSC_VER) && !defined(NDEBUG)
         constexpr as::Bytes vector_constr_heap_alloc_size{16};
 #else
@@ -65,7 +66,7 @@ int main() {
                 pin_heap_allocation(l.data());
                 exp_new_calls = new_calls_before_reserve + 1U;
                 AS_ASSERT_THROW(memstats.new_calls() == exp_new_calls);
-                exp_peak_size = as::Bytes{b44} + impl_correction_ofs;
+                exp_peak_size = scalar_plus_array_size + impl_correction_ofs;
                 AS_ASSERT_THROW(memstats.peak_size() == exp_peak_size);
                 for (size_t i = 0; i < n10 / 2U; ++i)
                     l.push_back(static_cast<int>(i));
@@ -77,7 +78,7 @@ int main() {
             ++exp_delete_calls;
             AS_ASSERT_THROW(memstats.delete_calls() == exp_delete_calls);
 
-            AS_ASSERT_THROW(memstats.peak_size() == as::Bytes{b44} + impl_correction_ofs);
+            AS_ASSERT_THROW(memstats.peak_size() == scalar_plus_array_size + impl_correction_ofs);
 
             std::unique_ptr<int[]> p2(new int[n10]); // NOLINT
             pin_heap_allocation(p2.get());
