@@ -15,8 +15,10 @@ static_assert(header_size % max_alignment == 0U);
 
 #ifdef __clang__
 #pragma clang diagnostic push
+#ifdef __has_warning
 #if __has_warning("-Wallocator-wrappers")
 #pragma clang diagnostic ignored "-Wallocator-wrappers"
+#endif
 #endif
 #pragma clang diagnostic ignored "-Wunsafe-buffer-usage"
 #endif
@@ -41,13 +43,15 @@ namespace {
     return static_cast<char*>(raw) + header_size; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
 }
 
+// NOLINTNEXTLINE(llvm-prefer-static-over-anonymous-namespace)
 void* allocate_or_throw(size_t size_in_bytes) {
     if (void* const p = allocate_with_stats(size_in_bytes))
         return p;
     throw std::bad_alloc{};
 }
 
-#if defined(__cpp_aligned_new)
+#ifdef __cpp_aligned_new
+// NOLINTNEXTLINE(llvm-prefer-static-over-anonymous-namespace)
 void* allocate_aligned_with_stats(size_t size_in_bytes, std::align_val_t alignment_value) noexcept {
     const auto alignment = static_cast<size_t>(alignment_value);
     if (alignment == 0U || (alignment & (alignment - 1U)) != 0U)
@@ -80,12 +84,14 @@ void* allocate_aligned_with_stats(size_t size_in_bytes, std::align_val_t alignme
     return aligned;
 }
 
+// NOLINTNEXTLINE(llvm-prefer-static-over-anonymous-namespace)
 void* allocate_aligned_or_throw(size_t size_in_bytes, std::align_val_t alignment) {
     if (void* const p = allocate_aligned_with_stats(size_in_bytes, alignment))
         return p;
     throw std::bad_alloc{};
 }
 
+// NOLINTNEXTLINE(llvm-prefer-static-over-anonymous-namespace)
 void deallocate_aligned_with_stats(const void* p) noexcept {
     if (!p)
         return;
@@ -137,7 +143,7 @@ void operator delete[](void* p) noexcept {
 // Sized deallocation overloads (C++14): forward to the unsized versions.
 // Standard headers can hide these declarations when the compiler's sized-deallocation
 // feature is disabled, even though the replacement functions remain valid.
-#if !defined(__cpp_sized_deallocation)
+#ifndef __cpp_sized_deallocation
 void operator delete(void*, size_t) noexcept;
 void operator delete[](void*, size_t) noexcept;
 #endif
@@ -150,7 +156,7 @@ void operator delete[](void* p, size_t /*unused*/) noexcept {
     ::operator delete[](p);
 }
 
-#if defined(__cpp_aligned_new)
+#ifdef __cpp_aligned_new
 // NOLINTNEXTLINE(readability-inconsistent-declaration-parameter-name)
 void* operator new(size_t size_in_bytes, std::align_val_t alignment) {
     return allocate_aligned_or_throw(size_in_bytes, alignment);
@@ -173,17 +179,17 @@ void* operator new[](size_t size_in_bytes, std::align_val_t alignment, const std
 
 // The language fixes global deallocation parameters as void*, not const void*.
 // cppcheck-suppress constParameterPointer
-void operator delete(void* p, std::align_val_t /*unused*/) noexcept {
+void operator delete(void* const p, std::align_val_t /*unused*/) noexcept {
     deallocate_aligned_with_stats(p);
 }
 
 // cppcheck-suppress constParameterPointer
-void operator delete[](void* p, std::align_val_t /*unused*/) noexcept {
+void operator delete[](void* const p, std::align_val_t /*unused*/) noexcept {
     deallocate_aligned_with_stats(p);
 }
 
 // Sized, aligned deallocation overloads (C++17): forward to the unsized versions.
-#if !defined(__cpp_sized_deallocation)
+#ifndef __cpp_sized_deallocation
 void operator delete(void*, size_t, std::align_val_t) noexcept;
 void operator delete[](void*, size_t, std::align_val_t) noexcept;
 #endif

@@ -1,10 +1,10 @@
 #include "mb/alloc-statistics/new_statistics.hpp"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
-#include <cstring>
 #include <limits>
 #include <new>
 
@@ -19,9 +19,16 @@ namespace {
         } \
     } while (false)
 
+#if defined(_MSC_VER)
+#pragma warning(push)
+#pragma warning(disable : 4'324)
+#endif
 struct alignas(64) OverAligned {
     unsigned char value;
 };
+#if defined(_MSC_VER)
+#pragma warning(pop)
+#endif
 
 void pin_heap_allocation([[maybe_unused]] void* p) noexcept {
 #if defined(__GNUC__)
@@ -135,8 +142,8 @@ int main() {
             AS_CHECK(first != second);
             AS_CHECK(reinterpret_cast<std::uintptr_t>(first) % current_alignment == 0U);
             AS_CHECK(reinterpret_cast<std::uintptr_t>(second) % current_alignment == 0U);
-            std::memset(first, 0x5a, size);
-            std::memset(second, 0xa5, size);
+            std::fill_n(static_cast<std::byte*>(first), size, std::byte{0x5a});
+            std::fill_n(static_cast<std::byte*>(second), size, std::byte{0xa5});
 
             expected_new_calls += 2U;
             expected_allocated += as::Bytes{size * 2U};
