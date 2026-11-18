@@ -3,8 +3,8 @@
 #include <array>
 #include <barrier>
 #include <cstddef>
-#include <cstdio>
 #include <cstdlib>
+#include <iostream>
 #include <thread>
 
 // Keep this bookkeeping-only executable independent of the interposition object.
@@ -21,7 +21,7 @@ namespace {
 #define AS_CHECK(condition) \
     do { \
         if (!(condition)) { \
-            std::fprintf(stderr, "Assertion failed at %s:%d: %s\n", __FILE__, __LINE__, #condition); \
+            std::cerr << "Assertion failed at " << __FILE__ << ':' << __LINE__ << ": " #condition << '\n'; \
             return EXIT_FAILURE; \
         } \
     } while (false)
