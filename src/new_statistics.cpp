@@ -179,11 +179,13 @@ void* operator new[](size_t size_in_bytes, std::align_val_t alignment, const std
 
 // The language fixes global deallocation parameters as void*, not const void*.
 // NOLINTNEXTLINE(misc-const-correctness)
+// cppcheck-suppress constParameterPointer
 void operator delete(void* p, std::align_val_t /*unused*/) noexcept {
     deallocate_aligned_with_stats(p);
 }
 
 // NOLINTNEXTLINE(misc-const-correctness)
+// cppcheck-suppress constParameterPointer
 void operator delete[](void* p, std::align_val_t /*unused*/) noexcept {
     deallocate_aligned_with_stats(p);
 }
